@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#05090b">
+<title>Poker Vision AI — Training</title>
+<style>
+:root{color-scheme:dark;--bg:#05090b;--panel:#10191d;--line:#294047;--mint:#79f2c0;--muted:#9eb4b9;--white:#f3fbfa;--red:#ff7777}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--white);font:18px/1.35 system-ui,-apple-system,Segoe UI,sans-serif}
+main{width:min(100vw,600px);min-height:100vh;margin:auto;padding:22px;display:flex;flex-direction:column;gap:14px}
+header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:12px}
+.brand{font-weight:800;letter-spacing:.08em;font-size:20px}.tag{font-size:12px;color:var(--mint);border:1px solid #367b63;border-radius:20px;padding:5px 9px}
+h1{font-size:25px;margin:2px 0 0} .sub{color:var(--muted);font-size:14px;margin-top:-9px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}
+.panel h2{font-size:15px;color:var(--mint);letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+select,input{width:100%;min-width:0;background:#071014;border:1px solid #35515a;color:var(--white);border-radius:9px;padding:10px 5px;font:inherit;text-align:center}
+select{font-size:18px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.metric{background:#071014;border:1px solid #35515a;border-radius:12px;padding:12px}
+.metric small{display:block;color:var(--muted);font-size:12px}.metric strong{font-size:27px;color:var(--mint)}
+button{background:var(--mint);color:#04100c;border:0;border-radius:12px;padding:13px 16px;font-weight:800;font-size:16px}
+button.secondary{background:#1b2b30;color:var(--white);border:1px solid #3a555d}
+.note{font-size:12px;color:var(--muted)}.result{font-size:15px;min-height:44px}
+footer{margin-top:auto;color:#71878c;font-size:11px;text-align:center}
+@media(max-width:420px){main{padding:14px}.cards{gap:4px}select{padding:9px 1px;font-size:15px}.brand{font-size:17px}}
+</style>
+</head>
+<body>
+<main>
+<header><div class="brand">POKER VISION <span style="color:var(--mint)">AI</span></div><div class="tag">TRAINING MODE</div></header>
+<h1>Разбор раздачи</h1>
+<div class="sub">Ручной ввод для проверки интерфейса на дисплее</div>
+
+<section class="panel">
+<h2>Твои карты</h2>
+<div class="cards"><select id="h1" aria-label="Первая карманная карта"></select><select id="h2" aria-label="Вторая карманная карта"></select></div>
+</section>
+
+<section class="panel">
+<h2>Борд</h2>
+<div class="cards">
+<select id="b1" aria-label="Флоп 1"></select><select id="b2" aria-label="Флоп 2"></select><select id="b3" aria-label="Флоп 3"></select><select id="b4" aria-label="Тёрн"></select><select id="b5" aria-label="Ривер"></select>
+</div>
+<div class="note" style="margin-top:8px">Пустые ячейки — карты ещё не открыты.</div>
+</section>
+
+<section class="panel">
+<h2>Банк и решение</h2>
+<div class="row">
+<label class="metric"><small>Банк до колла</small><input id="pot" type="number" min="0" step="0.01" value="100"></label>
+<label class="metric"><small>Размер колла</small><input id="call" type="number" min="0" step="0.01" value="25"></label>
+</div>
+</section>
+
+<div class="row">
+<div class="metric"><small>Шансы банка</small><strong id="odds">20.0%</strong></div>
+<div class="metric"><small>Открыто карт борда</small><strong id="street">0 / 5</strong></div>
+</div>
+<div class="panel result" id="message">Выбери карты и нажми «Рассчитать».</div>
+<button id="calc">Рассчитать</button>
+<button class="secondary" id="reset">Сбросить раздачу</button>
+<div class="note">Прототип: распознавание камеры и расчёт эквити пока не подключены. Используй только для учебных раздач и анализа после игры.</div>
+<footer>POKER VISION AI · LOCAL TRAINING PROTOTYPE</footer>
+</main>
+<script>
+const ranks=['A','K','Q','J','10','9','8','7','6','5','4','3','2'];
+const suits=[['♠','S'],['♥','H'],['♦','D'],['♣','C']];
+const deck=[];
+for(const [sym,s] of suits) for(const r of ranks) deck.push({v:r+s,label:r+sym,red:s==='H'||s==='D'});
+const ids=['h1','h2','b1','b2','b3','b4','b5'];
+const blank='—';
+for(const id of ids){
+ const el=document.getElementById(id);
+ el.add(new Option(blank,''));
+ for(const c of deck){const o=new Option(c.label,c.v); if(c.red)o.style.color='#ff8585';el.add(o);}
+ el.addEventListener('change',validate);
+}
+function selected(){return ids.map(id=>document.getElementById(id).value).filter(Boolean)}
+function validate(){
+ const vals=selected(), dup=vals.length!==new Set(vals).size;
+ document.getElementById('message').textContent=dup?'Ошибка: одна карта выбрана несколько раз.':'Карты выбраны. Можно рассчитать шансы банка.';
+ document.getElementById('street').textContent=ids.slice(2).filter(id=>document.getElementById(id).value).length+' / 5';
+}
+function calculate(){
+ const vals=selected(), pot=Math.max(0,Number(document.getElementById('pot').value)||0), call=Math.max(0,Number(document.getElementById('call').value)||0);
+ if(vals.length!==new Set(vals).size){document.getElementById('message').textContent='Исправь повторяющиеся карты.';return;}
+ const h1=document.getElementById('h1').value,h2=document.getElementById('h2').value;
+ if(!h1||!h2){document.getElementById('message').textContent='Выбери обе карманные карты.';return;}
+ if(call===0){document.getElementById('odds').textContent='0.0%';}
+ else if(pot+call===0){document.getElementById('odds').textContent='—';}
+ else{document.getElementById('odds').textContent=(100*call/(pot+call)).toFixed(1)+'%';}
+ const board=ids.slice(2).filter(id=>document.getElementById(id).value).length;
+ document.getElementById('street').textContent=board+' / 5';
+ document.getElementById('message').textContent='Шансы банка рассчитаны. Эквити руки пока не вычисляется: для этого следующим этапом добавим покерный движок и тестирование на учебных сценариях.';
+}
+document.getElementById('calc').addEventListener('click',calculate);
+document.getElementById('reset').addEventListener('click',()=>{
+ ids.forEach(id=>document.getElementById(id).value='');
+ document.getElementById('pot').value=100;document.getElementById('call').value=25;
+ document.getElementById('odds').textContent='20.0%';document.getElementById('street').textContent='0 / 5';
+ document.getElementById('message').textContent='Раздача сброшена.';validate();
+});
+calculate();
+</script>
+</body></html>
